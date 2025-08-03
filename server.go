@@ -2,6 +2,7 @@ package main
 
 import(
 	"net/http"
+	"sync/atomic"
 )
 
 func startServer() {
@@ -9,19 +10,19 @@ func startServer() {
 	const port = "9090"
 
 	servemux := http.NewServeMux()
+	apiCfg := apiConfig{
+		fileserverHits: atomic.Int32{},
+	}
 
-	servemux.Handle("/app/", http.StripPrefix("/app", http.FileServer(http.Dir(filepathRoot))))
+	servemux.Handle("/app/", apiCfg.middlewareMetricsInc(http.StripPrefix("/app", http.FileServer(http.Dir(filepathRoot)))))
 	servemux.HandleFunc("/healthz/", handlerHealthz)
+	servemux.HandleFunc("/metrics/", apiCfg.handlerGetHits)
+	servemux.HandleFunc("/reset/", apiCfg.handlerResetHits)
 
-	server := http.Server{}
-	server.Addr = ":" + port
-	server.Handler = servemux
+	server := &http.Server{
+		Addr:    ":" + port,
+		Handler: servemux,
+	}
 
 	server.ListenAndServe()
-}
-
-func handlerHealthz(rw http.ResponseWriter, req *http.Request) {
-	rw.Header().Add("Content-Type", "text/plain; charset=utf-8")
-	rw.WriteHeader(http.StatusOK)
-	rw.Write([]byte(http.StatusText(http.StatusOK)))
 }
