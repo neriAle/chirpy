@@ -18,6 +18,7 @@ func startServer() {
 	servemux.HandleFunc("GET /api/healthz", handlerHealthz)
 	servemux.HandleFunc("GET /admin/metrics", apiCfg.handlerGetHits)
 	servemux.HandleFunc("POST /admin/reset", apiCfg.handlerResetHits)
+	servemux.HandleFunc("POST /api/validate_chirp", handlerValidateChirp)
 
 	server := &http.Server{
 		Addr:    ":" + port,
