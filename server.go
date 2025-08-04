@@ -15,9 +15,9 @@ func startServer() {
 	}
 
 	servemux.Handle("/app/", apiCfg.middlewareMetricsInc(http.StripPrefix("/app", http.FileServer(http.Dir(filepathRoot)))))
-	servemux.HandleFunc("/healthz/", handlerHealthz)
-	servemux.HandleFunc("/metrics/", apiCfg.handlerGetHits)
-	servemux.HandleFunc("/reset/", apiCfg.handlerResetHits)
+	servemux.HandleFunc("GET /api/healthz", handlerHealthz)
+	servemux.HandleFunc("GET /admin/metrics", apiCfg.handlerGetHits)
+	servemux.HandleFunc("POST /admin/reset", apiCfg.handlerResetHits)
 
 	server := &http.Server{
 		Addr:    ":" + port,
