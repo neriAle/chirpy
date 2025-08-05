@@ -5,6 +5,7 @@ import(
 	"fmt"
 	"log"
 	"net/http"
+	"strings"
 	"sync/atomic"
 )
 
@@ -45,7 +46,7 @@ func handlerValidateChirp(rw http.ResponseWriter, req *http.Request) {
 
 	type returnValues struct {
 		Error string `json:"error"`
-		Valid bool `json:"valid"`
+		Cleaned_Body string `json:"cleaned_body"`
 	}
 	resBody := returnValues{}
 
@@ -53,29 +54,66 @@ func handlerValidateChirp(rw http.ResponseWriter, req *http.Request) {
 	err := decoder.Decode(&params)
 	if err != nil {
 		log.Printf("Error decoding parameters: %w", err)
-		rw.Header().Set("Content-Type", "application/json")
-		rw.WriteHeader(500)
-
-		resBody.Error = "Something went wrong"
-		data, err1 := json.Marshal(resBody)
-		if err1 == nil {
-			rw.Write(data)
-		}
-
+		respondWithError(rw, 500, "Something went wrong")
 		return
 	}
 
 	if len(params.Body) > 140 {
-		resBody.Error = "Chirp is too long"
-		rw.WriteHeader(400)
+		respondWithError(rw, 400, "Chirp is too long")
 	} else {
-		resBody.Valid = true
-		rw.WriteHeader(200)
-	}
-	data, err := json.Marshal(resBody)
-	if err == nil {
-		rw.Write(data)
+		resBody.Cleaned_Body = replaceProfaneWords(params.Body, getProfaneWords())
+		respondWithJSON(rw, 200, resBody)
 	}
 
 	return
+}
+
+func respondWithError(rw http.ResponseWriter, code int, msg string) {
+	rw.Header().Set("Content-Type", "application/json")
+	rw.WriteHeader(code)
+	data, _ := json.Marshal(struct{Error string `json:"error"`}{Error: msg})
+	rw.Write(data)
+	return
+}
+
+func respondWithJSON(rw http.ResponseWriter, code int, payload interface{}) {
+	rw.Header().Set("Content-Type", "application/json")
+	data, err := json.Marshal(payload)
+	if err != nil {
+		log.Printf("Error marshalling payload: %w", err)
+		rw.WriteHeader(500)
+		return
+	}
+	rw.WriteHeader(code)
+	rw.Write(data)
+	return
+}
+
+func getProfaneWords() []string {
+	return []string{
+		"kerfuffle",
+		"sharbert",
+		"fornax",
+	}
+}
+
+func replaceProfaneWords(sentence string, profaneWords []string) string {
+	words := strings.Split(sentence, " ")
+	cleanWords := []string{}
+	for _, w := range words {
+		profane := false
+		for _, p := range profaneWords {
+			if strings.ToLower(w) == p {
+				profane = true
+				break
+			}
+		}
+		if profane {
+			cleanWords = append(cleanWords, "****")
+		} else {
+			cleanWords = append(cleanWords, w)
+		}
+	}
+	cleanSentence := strings.Join(cleanWords, " ")
+	return cleanSentence
 }
