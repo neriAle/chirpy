@@ -1,17 +1,19 @@
 package main
 
 import(
+	"github.com/neriAle/chirpy/internal/database"
 	"net/http"
 	"sync/atomic"
 )
 
-func startServer() {
+func startServer(dbq *database.Queries) {
 	const filepathRoot = "."
 	const port = "9090"
 
 	servemux := http.NewServeMux()
 	apiCfg := apiConfig{
 		fileserverHits: atomic.Int32{},
+		db: dbq,
 	}
 
 	servemux.Handle("/app/", apiCfg.middlewareMetricsInc(http.StripPrefix("/app", http.FileServer(http.Dir(filepathRoot)))))

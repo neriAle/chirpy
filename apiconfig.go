@@ -1,6 +1,7 @@
 package main
 
 import(
+	"github.com/neriAle/chirpy/internal/database"
 	"encoding/json"
 	"fmt"
 	"log"
@@ -11,6 +12,7 @@ import(
 
 type apiConfig struct {
 	fileserverHits atomic.Int32
+	db *database.Queries
 }
 
 func (cfg *apiConfig) middlewareMetricsInc(next http.Handler) http.Handler {
