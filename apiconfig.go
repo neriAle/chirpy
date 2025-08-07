@@ -1,6 +1,7 @@
 package main
 
 import(
+	"github.com/google/uuid"
 	"github.com/neriAle/chirpy/internal/database"
 	"encoding/json"
 	"fmt"
@@ -8,11 +9,20 @@ import(
 	"net/http"
 	"strings"
 	"sync/atomic"
+	"time"
 )
 
 type apiConfig struct {
 	fileserverHits atomic.Int32
 	db *database.Queries
+	platform string
+}
+
+type User struct {
+	ID        uuid.UUID `json:"id"`
+	CreatedAt time.Time `json:"created_at"`
+	UpdatedAt time.Time `json:"updated_at"`
+	Email     string    `json:"email"`
 }
 
 func (cfg *apiConfig) middlewareMetricsInc(next http.Handler) http.Handler {
@@ -20,6 +30,32 @@ func (cfg *apiConfig) middlewareMetricsInc(next http.Handler) http.Handler {
 		cfg.fileserverHits.Add(1)
 		next.ServeHTTP(rw, req)
 	})
+}
+
+func (cfg *apiConfig) handlerCreateUser(rw http.ResponseWriter, req *http.Request) {
+	type parameters struct {
+		Email string `json:"email"`
+	}
+	params := parameters{}
+
+	decoder := json.NewDecoder(req.Body)
+	err := decoder.Decode(&params)
+	if err != nil {
+		log.Printf("Error decoding parameters: %w", err)
+		respondWithError(rw, 500, "Something went wrong")
+		return
+	}
+
+	user, err := cfg.db.CreateUser(req.Context(), params.Email)
+	if err != nil {
+		log.Printf("Error creating the user on the database: %w", err)
+		respondWithError(rw, 500, "Can't create user")
+		return
+	}
+
+	mappedUser := User(user)
+	respondWithJSON(rw, 201, mappedUser)
+	return
 }
 
 func (cfg *apiConfig) handlerGetHits(rw http.ResponseWriter, req *http.Request) {
@@ -35,9 +71,15 @@ func (cfg *apiConfig) handlerGetHits(rw http.ResponseWriter, req *http.Request) 
 	rw.Write([]byte(body))
 }
 
-func (cfg *apiConfig) handlerResetHits(rw http.ResponseWriter, req *http.Request) {
+func (cfg *apiConfig) handlerReset(rw http.ResponseWriter, req *http.Request) {
+	if cfg.platform != "dev" {
+		rw.WriteHeader(403)
+		return
+	}
 	cfg.fileserverHits.Store(0)
+	cfg.db.DeleteUsers(req.Context())
 	rw.WriteHeader(http.StatusOK)
+	return
 }
 
 func handlerValidateChirp(rw http.ResponseWriter, req *http.Request) {
