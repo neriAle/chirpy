@@ -6,7 +6,7 @@ import(
 	"sync/atomic"
 )
 
-func startServer(dbq *database.Queries) {
+func startServer(dbq *database.Queries, pf string) {
 	const filepathRoot = "."
 	const port = "9090"
 
@@ -14,13 +14,15 @@ func startServer(dbq *database.Queries) {
 	apiCfg := apiConfig{
 		fileserverHits: atomic.Int32{},
 		db: dbq,
+		platform: pf,
 	}
 
 	servemux.Handle("/app/", apiCfg.middlewareMetricsInc(http.StripPrefix("/app", http.FileServer(http.Dir(filepathRoot)))))
 	servemux.HandleFunc("GET /api/healthz", handlerHealthz)
 	servemux.HandleFunc("GET /admin/metrics", apiCfg.handlerGetHits)
-	servemux.HandleFunc("POST /admin/reset", apiCfg.handlerResetHits)
+	servemux.HandleFunc("POST /admin/reset", apiCfg.handlerReset)
 	servemux.HandleFunc("POST /api/validate_chirp", handlerValidateChirp)
+	servemux.HandleFunc("POST /api/users", apiCfg.handlerCreateUser)
 
 	server := &http.Server{
 		Addr:    ":" + port,
