@@ -21,8 +21,8 @@ func startServer(dbq *database.Queries, pf string) {
 	servemux.HandleFunc("GET /api/healthz", handlerHealthz)
 	servemux.HandleFunc("GET /admin/metrics", apiCfg.handlerGetHits)
 	servemux.HandleFunc("POST /admin/reset", apiCfg.handlerReset)
-	servemux.HandleFunc("POST /api/validate_chirp", handlerValidateChirp)
 	servemux.HandleFunc("POST /api/users", apiCfg.handlerCreateUser)
+	servemux.HandleFunc("POST /api/chirps", apiCfg.handlerCreateChirp)
 
 	server := &http.Server{
 		Addr:    ":" + port,

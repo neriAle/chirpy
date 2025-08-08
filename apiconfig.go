@@ -25,6 +25,14 @@ type User struct {
 	Email     string    `json:"email"`
 }
 
+type Chirp struct {
+	ID        uuid.UUID `json:"id"`
+	CreatedAt time.Time `json:"created_at"`
+	UpdatedAt time.Time `json:"updated_at"`
+	Body      string	`json:"body"`
+	UserID    uuid.UUID `json:"user_id"`
+}
+
 func (cfg *apiConfig) middlewareMetricsInc(next http.Handler) http.Handler {
 	return http.HandlerFunc(func(rw http.ResponseWriter, req *http.Request) {
 		cfg.fileserverHits.Add(1)
@@ -55,6 +63,40 @@ func (cfg *apiConfig) handlerCreateUser(rw http.ResponseWriter, req *http.Reques
 
 	mappedUser := User(user)
 	respondWithJSON(rw, 201, mappedUser)
+	return
+}
+
+func (cfg *apiConfig) handlerCreateChirp(rw http.ResponseWriter, req *http.Request) {
+	type parameters struct {
+		Body   string `json:"body"`
+		UserID uuid.UUID `json:"user_id"`
+	}
+	params := parameters{}
+
+	decoder := json.NewDecoder(req.Body)
+	err := decoder.Decode(&params)
+	if err != nil {
+		log.Printf("Error decoding parameters: %w", err)
+		respondWithError(rw, 500, "Something went wrong")
+		return
+	}
+
+	if len(params.Body) > 140 {
+		respondWithError(rw, 400, "Chirp is too long")
+		return
+	} else {
+		params.Body = replaceProfaneWords(params.Body, getProfaneWords())
+	}
+
+	chirp, err := cfg.db.CreateChirp(req.Context(), database.CreateChirpParams(params))
+	if err != nil {
+		log.Printf("Error creating the chirp on the database: %w", err)
+		respondWithError(rw, 500, "Can't create chirp")
+		return
+	}
+
+	mappedChirp := Chirp(chirp)
+	respondWithJSON(rw, 201, mappedChirp)
 	return
 }
 
