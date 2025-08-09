@@ -116,6 +116,31 @@ func (cfg *apiConfig) handlerGetChirps(rw http.ResponseWriter, req *http.Request
 	return
 }
 
+func (cfg *apiConfig) handlerGetChirp(rw http.ResponseWriter, req *http.Request) {
+	cid := req.PathValue("chirpID")
+	if cid == "" {
+		respondWithError(rw, 400, "Missing chirp ID in request")
+		return
+	}
+
+	parsedUUID, err := uuid.Parse(cid)
+	if err != nil {
+		log.Printf("The ID of the request can't be parsed into a UUID")
+		respondWithError(rw, 400, "Invalid ID")
+		return
+	}
+
+	chirp, err := cfg.db.GetChirp(req.Context(), parsedUUID)
+	if err != nil {
+		respondWithError(rw, 404, "Chirp not found")
+		return
+	}
+
+	mappedChirp := Chirp(chirp)
+	respondWithJSON(rw, 200, mappedChirp)
+	return
+}
+
 func (cfg *apiConfig) handlerGetHits(rw http.ResponseWriter, req *http.Request) {
 	rw.Header().Add("Content-Type", "text/html")
 	rw.WriteHeader(http.StatusOK)
