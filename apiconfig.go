@@ -100,6 +100,22 @@ func (cfg *apiConfig) handlerCreateChirp(rw http.ResponseWriter, req *http.Reque
 	return
 }
 
+func (cfg *apiConfig) handlerGetChirps(rw http.ResponseWriter, req *http.Request) {
+	chirps, err := cfg.db.ListChirps(req.Context())
+	if err != nil {
+		log.Printf("Error retrieving the chirps from the database: %w", err)
+		respondWithError(rw, 500, "Can't retrieve chirps")
+		return
+	}
+
+	mappedChirps := []Chirp{}
+	for _, c := range chirps {
+		mappedChirps = append(mappedChirps, Chirp(c))
+	}
+	respondWithJSON(rw, 200, mappedChirps)
+	return
+}
+
 func (cfg *apiConfig) handlerGetHits(rw http.ResponseWriter, req *http.Request) {
 	rw.Header().Add("Content-Type", "text/html")
 	rw.WriteHeader(http.StatusOK)
