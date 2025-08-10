@@ -2,6 +2,7 @@ package main
 
 import(
 	"github.com/google/uuid"
+	"github.com/neriAle/chirpy/internal/auth"
 	"github.com/neriAle/chirpy/internal/database"
 	"encoding/json"
 	"fmt"
@@ -42,21 +43,34 @@ func (cfg *apiConfig) middlewareMetricsInc(next http.Handler) http.Handler {
 
 func (cfg *apiConfig) handlerCreateUser(rw http.ResponseWriter, req *http.Request) {
 	type parameters struct {
-		Email string `json:"email"`
+		Email 		string `json:"email"`
+		Password 	string `json:"password"`
+	}
+	type userParameters struct {
+		Email          string
+		HashedPassword string
 	}
 	params := parameters{}
 
 	decoder := json.NewDecoder(req.Body)
 	err := decoder.Decode(&params)
 	if err != nil {
-		log.Printf("Error decoding parameters: %w", err)
-		respondWithError(rw, 500, "Something went wrong")
+		log.Printf("Error decoding parameters: %s", err)
+		respondWithError(rw, 400, "Email and Password are required for registration")
 		return
 	}
 
-	user, err := cfg.db.CreateUser(req.Context(), params.Email)
+	hash, err := auth.HashPassword(params.Password)
 	if err != nil {
-		log.Printf("Error creating the user on the database: %w", err)
+		log.Printf("Error hashing the password: %s", err)
+		respondWithError(rw, 500, "Something went wrong while hashing the password")
+		return
+	}
+
+	userParams := userParameters{Email: params.Email, HashedPassword: hash}
+	user, err := cfg.db.CreateUser(req.Context(), database.CreateUserParams(userParams))
+	if err != nil {
+		log.Printf("Error creating the user on the database: %s", err)
 		respondWithError(rw, 500, "Can't create user")
 		return
 	}
@@ -76,7 +90,7 @@ func (cfg *apiConfig) handlerCreateChirp(rw http.ResponseWriter, req *http.Reque
 	decoder := json.NewDecoder(req.Body)
 	err := decoder.Decode(&params)
 	if err != nil {
-		log.Printf("Error decoding parameters: %w", err)
+		log.Printf("Error decoding parameters: %s", err)
 		respondWithError(rw, 500, "Something went wrong")
 		return
 	}
@@ -90,7 +104,7 @@ func (cfg *apiConfig) handlerCreateChirp(rw http.ResponseWriter, req *http.Reque
 
 	chirp, err := cfg.db.CreateChirp(req.Context(), database.CreateChirpParams(params))
 	if err != nil {
-		log.Printf("Error creating the chirp on the database: %w", err)
+		log.Printf("Error creating the chirp on the database: %s", err)
 		respondWithError(rw, 500, "Can't create chirp")
 		return
 	}
@@ -103,7 +117,7 @@ func (cfg *apiConfig) handlerCreateChirp(rw http.ResponseWriter, req *http.Reque
 func (cfg *apiConfig) handlerGetChirps(rw http.ResponseWriter, req *http.Request) {
 	chirps, err := cfg.db.ListChirps(req.Context())
 	if err != nil {
-		log.Printf("Error retrieving the chirps from the database: %w", err)
+		log.Printf("Error retrieving the chirps from the database: %s", err)
 		respondWithError(rw, 500, "Can't retrieve chirps")
 		return
 	}
@@ -180,7 +194,7 @@ func handlerValidateChirp(rw http.ResponseWriter, req *http.Request) {
 	decoder := json.NewDecoder(req.Body)
 	err := decoder.Decode(&params)
 	if err != nil {
-		log.Printf("Error decoding parameters: %w", err)
+		log.Printf("Error decoding parameters: %s", err)
 		respondWithError(rw, 500, "Something went wrong")
 		return
 	}
@@ -207,7 +221,7 @@ func respondWithJSON(rw http.ResponseWriter, code int, payload interface{}) {
 	rw.Header().Set("Content-Type", "application/json")
 	data, err := json.Marshal(payload)
 	if err != nil {
-		log.Printf("Error marshalling payload: %w", err)
+		log.Printf("Error marshalling payload: %s", err)
 		rw.WriteHeader(500)
 		return
 	}
