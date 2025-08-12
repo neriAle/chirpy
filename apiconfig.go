@@ -80,6 +80,39 @@ func (cfg *apiConfig) handlerCreateUser(rw http.ResponseWriter, req *http.Reques
 	return
 }
 
+func (cfg *apiConfig) handlerLoginUser(rw http.ResponseWriter, req *http.Request) {
+	type parameters struct {
+		Email 		string `json:"email"`
+		Password 	string `json:"password"`
+	}
+	params := parameters{}
+
+	decoder := json.NewDecoder(req.Body)
+	err := decoder.Decode(&params)
+	if err != nil {
+		log.Printf("Error decoding parameters: %s", err)
+		respondWithError(rw, 400, "Email and Password are required for login")
+		return
+	}
+
+	user, err := cfg.db.GetUserByEmail(req.Context(), params.Email)
+	if err != nil {
+		log.Printf("User not found: %s", err)
+		respondWithError(rw, 401, "Incorrect email or password")
+		return
+	}
+
+	err = auth.CheckPasswordHash(params.Password, user.HashedPassword)
+	if err != nil {
+		log.Printf("Invalid password: %s", err)
+		respondWithError(rw, 401, "Incorrect email or password")
+		return
+	}
+
+	usr := User{ID: user.ID, CreatedAt: user.CreatedAt, UpdatedAt: user.UpdatedAt, Email: user.Email}
+	respondWithJSON(rw, 200, usr)
+}
+
 func (cfg *apiConfig) handlerCreateChirp(rw http.ResponseWriter, req *http.Request) {
 	type parameters struct {
 		Body   string `json:"body"`
