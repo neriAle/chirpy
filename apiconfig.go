@@ -14,9 +14,10 @@ import(
 )
 
 type apiConfig struct {
-	fileserverHits atomic.Int32
-	db *database.Queries
-	platform string
+	fileserverHits 	atomic.Int32
+	db 				*database.Queries
+	platform 		string
+	tokenSecret 	string
 }
 
 type User struct {

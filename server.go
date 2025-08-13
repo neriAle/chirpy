@@ -6,7 +6,7 @@ import(
 	"sync/atomic"
 )
 
-func startServer(dbq *database.Queries, pf string) {
+func startServer(dbq *database.Queries, pf string, ts string) {
 	const filepathRoot = "."
 	const port = "9090"
 
@@ -15,6 +15,7 @@ func startServer(dbq *database.Queries, pf string) {
 		fileserverHits: atomic.Int32{},
 		db: dbq,
 		platform: pf,
+		tokenSecret: ts,
 	}
 
 	servemux.Handle("/app/", apiCfg.middlewareMetricsInc(http.StripPrefix("/app", http.FileServer(http.Dir(filepathRoot)))))
