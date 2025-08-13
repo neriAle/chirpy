@@ -4,6 +4,8 @@ import (
 	"errors"
 	"github.com/golang-jwt/jwt/v5"
 	"github.com/google/uuid"
+	"net/http"
+	"strings"
 	"time"
 )
 
@@ -44,4 +46,14 @@ func ValidateJWT(tokenString, tokenSecret string) (uuid.UUID, error) {
 	}
 	
 	return id, nil
+}
+
+func GetBearerToken(headers http.Header) (string, error) {
+	authInfo := headers.Get("Authorization")
+	if authInfo == "" {
+		return "", errors.New("The header doesn't contain a token")
+	}
+
+	token := strings.Fields(authInfo)[1]
+	return token, nil
 }
