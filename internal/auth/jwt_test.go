@@ -2,6 +2,7 @@ package auth
 
 import(
 	"github.com/google/uuid"
+	"net/http"
 	"testing"
 	"time"
 )
@@ -64,5 +65,26 @@ func TestJWTWrongSecret(t *testing.T) {
 	_, err = ValidateJWT(jwt, "wrongSecret")
 	if err == nil {
 		t.Errorf("Expected JWT to be invalid")
+	}
+}
+
+func TestGetBearerToken(t *testing.T) {
+	headers := http.Header{}
+	headers.Add("Authorization", "Bearer test_token")
+	token, err := GetBearerToken(headers)
+	if err != nil {
+		t.Errorf("Expected to find the token")
+	}
+	if token != "test_token" {
+		t.Errorf("Expected token to match the one in headers")
+	}
+}
+
+func TestGetBearerTokenWrongHeader(t *testing.T) {
+	headers := http.Header{}
+	headers.Add("Auth", "Bearer test_token")
+	_, err := GetBearerToken(headers)
+	if err == nil {
+		t.Errorf("Expected to throw an error for missing header")
 	}
 }
