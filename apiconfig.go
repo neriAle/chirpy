@@ -21,10 +21,10 @@ type apiConfig struct {
 }
 
 type User struct {
-	ID        uuid.UUID `json:"id"`
-	CreatedAt time.Time `json:"created_at"`
-	UpdatedAt time.Time `json:"updated_at"`
-	Email     string    `json:"email"`
+	ID        	uuid.UUID 	`json:"id"`
+	CreatedAt 	time.Time 	`json:"created_at"`
+	UpdatedAt 	time.Time 	`json:"updated_at"`
+	Email     	string    	`json:"email"`
 }
 
 type Chirp struct {
@@ -83,8 +83,9 @@ func (cfg *apiConfig) handlerCreateUser(rw http.ResponseWriter, req *http.Reques
 
 func (cfg *apiConfig) handlerLoginUser(rw http.ResponseWriter, req *http.Request) {
 	type parameters struct {
-		Email 		string `json:"email"`
-		Password 	string `json:"password"`
+		Email 				string `json:"email"`
+		Password 			string `json:"password"`
+		Expires_in_seconds	*int `json:"expires_in_seconds,omitempty"`
 	}
 	params := parameters{}
 
@@ -110,7 +111,31 @@ func (cfg *apiConfig) handlerLoginUser(rw http.ResponseWriter, req *http.Request
 		return
 	}
 
-	usr := User{ID: user.ID, CreatedAt: user.CreatedAt, UpdatedAt: user.UpdatedAt, Email: user.Email}
+	expiration := time.Hour
+	if params.Expires_in_seconds != nil && *params.Expires_in_seconds < 3600 && *params.Expires_in_seconds > 0{
+		expiration = time.Duration(*params.Expires_in_seconds) * time.Second
+	}
+	token, err := auth.MakeJWT(user.ID, cfg.tokenSecret, expiration)
+	if err != nil {
+		log.Printf("Couldn't sign the JWT: %s", err)
+		respondWithError(rw, 500, "Unable to sign the JWT")
+		return
+	}
+
+	type UserWithToken struct {
+		User
+		Token	string	`json:"token,omitempty"`
+	}
+
+	usr := UserWithToken{
+		User: User{
+			ID: user.ID, 
+			CreatedAt: user.CreatedAt, 
+			UpdatedAt: user.UpdatedAt, 
+			Email: user.Email,
+		}, 
+		Token: token,
+	}
 	respondWithJSON(rw, 200, usr)
 }
 
@@ -128,6 +153,22 @@ func (cfg *apiConfig) handlerCreateChirp(rw http.ResponseWriter, req *http.Reque
 		respondWithError(rw, 500, "Something went wrong")
 		return
 	}
+
+	token, err := auth.GetBearerToken(req.Header)
+	if err != nil {
+		log.Printf("Header is missing JWT: %s", err)
+		respondWithError(rw, 401, "Header is missing JWT")
+		return
+	}
+
+	userId, err := auth.ValidateJWT(token, cfg.tokenSecret)
+	if err != nil {
+		log.Printf("Invalid token: %s", err)
+		respondWithError(rw, 401, "JWT is not valid")
+		return
+	}
+
+	params.UserID = userId
 
 	if len(params.Body) > 140 {
 		respondWithError(rw, 400, "Chirp is too long")
