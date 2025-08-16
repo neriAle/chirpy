@@ -4,11 +4,20 @@ VALUES (
     $1,
     NOW(),
     NOW(),
-    CAST(DATEADD(DAY, 60, GETDATE()) as DATE),
-    $2
+    $2,
+    $3
 )
 RETURNING token;
 
 -- name: GetUserFromRefreshToken :one
-SELECT user_id, expires_at FROM refresh_tokens
-WHERE token = $1 LIMIT 1;
+SELECT users.id FROM users
+JOIN refresh_tokens ON users.id = refresh_tokens.user_id
+WHERE refresh_tokens.token = $1
+AND revoked_at IS NULL
+AND expires_at > NOW();
+
+-- name: RevokeRefreshToken :exec
+UPDATE refresh_tokens
+    SET expires_at = NOW(),
+    updated_at = NOW()
+WHERE token = $1;

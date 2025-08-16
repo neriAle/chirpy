@@ -18,37 +18,48 @@ VALUES (
     $1,
     NOW(),
     NOW(),
-    CAST(DATEADD(DAY, 60, GETDATE()) as DATE),
-    $2
+    $2,
+    $3
 )
 RETURNING token
 `
 
 type CreateRefreshTokenParams struct {
-	Token  string
-	UserID uuid.UUID
+	Token     string
+	ExpiresAt time.Time
+	UserID    uuid.UUID
 }
 
 func (q *Queries) CreateRefreshToken(ctx context.Context, arg CreateRefreshTokenParams) (string, error) {
-	row := q.db.QueryRowContext(ctx, createRefreshToken, arg.Token, arg.UserID)
+	row := q.db.QueryRowContext(ctx, createRefreshToken, arg.Token, arg.ExpiresAt, arg.UserID)
 	var token string
 	err := row.Scan(&token)
 	return token, err
 }
 
 const getUserFromRefreshToken = `-- name: GetUserFromRefreshToken :one
-SELECT user_id, expires_at FROM refresh_tokens
-WHERE token = $1 LIMIT 1
+SELECT users.id FROM users
+JOIN refresh_tokens ON users.id = refresh_tokens.user_id
+WHERE refresh_tokens.token = $1
+AND revoked_at IS NULL
+AND expires_at > NOW()
 `
 
-type GetUserFromRefreshTokenRow struct {
-	UserID    uuid.UUID
-	ExpiresAt time.Time
+func (q *Queries) GetUserFromRefreshToken(ctx context.Context, token string) (uuid.UUID, error) {
+	row := q.db.QueryRowContext(ctx, getUserFromRefreshToken, token)
+	var id uuid.UUID
+	err := row.Scan(&id)
+	return id, err
 }
 
-func (q *Queries) GetUserFromRefreshToken(ctx context.Context, token string) (GetUserFromRefreshTokenRow, error) {
-	row := q.db.QueryRowContext(ctx, getUserFromRefreshToken, token)
-	var i GetUserFromRefreshTokenRow
-	err := row.Scan(&i.UserID, &i.ExpiresAt)
-	return i, err
+const revokeRefreshToken = `-- name: RevokeRefreshToken :exec
+UPDATE refresh_tokens
+    SET expires_at = NOW(),
+    updated_at = NOW()
+WHERE token = $1
+`
+
+func (q *Queries) RevokeRefreshToken(ctx context.Context, token string) error {
+	_, err := q.db.ExecContext(ctx, revokeRefreshToken, token)
+	return err
 }
