@@ -159,6 +159,41 @@ func (cfg *apiConfig) handlerLoginUser(rw http.ResponseWriter, req *http.Request
 	respondWithJSON(rw, 200, usr)
 }
 
+func (cfg *apiConfig) handlerRefreshJWT(rw http.ResponseWriter, req *http.Request) {
+	refresh_token, err := auth.GetBearerToken(req.Header)
+	if err != nil {
+		log.Printf("Header is missing refresh token: %s", err)
+		respondWithError(rw, 401, "Header is missing refresh token")
+		return
+	}
+
+	result, err := cfg.db.GetUserFromRefreshToken(req.Context(), refresh_token)
+	if err != nil {
+		log.Printf("Header is missing refresh token: %s", err)
+		respondWithError(rw, 401, "Header is missing refresh token")
+		return
+	}
+
+	if result.ExpiresAt.After(time.Now()) {
+		log.Printf("Refresh token expired")
+		respondWithError(rw, 401, "Refresh token expired")
+		return
+	}
+
+	expiration := time.Hour
+	token, err := auth.MakeJWT(result.UserID, cfg.tokenSecret, expiration)
+	if err != nil {
+		log.Printf("Couldn't sign the JWT: %s", err)
+		respondWithError(rw, 500, "Unable to sign the JWT")
+		return
+	}
+
+	type token_return struct {
+		Token	string	`json:"token"`
+	}
+	respondWithJSON(rw, 200, token_return{Token: token})
+}
+
 func (cfg *apiConfig) handlerCreateChirp(rw http.ResponseWriter, req *http.Request) {
 	type parameters struct {
 		Body   string `json:"body"`
