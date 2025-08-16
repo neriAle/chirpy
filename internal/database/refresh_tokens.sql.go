@@ -7,6 +7,7 @@ package database
 
 import (
 	"context"
+	"time"
 
 	"github.com/google/uuid"
 )
@@ -33,4 +34,21 @@ func (q *Queries) CreateRefreshToken(ctx context.Context, arg CreateRefreshToken
 	var token string
 	err := row.Scan(&token)
 	return token, err
+}
+
+const getUserFromRefreshToken = `-- name: GetUserFromRefreshToken :one
+SELECT user_id, expires_at FROM refresh_tokens
+WHERE token = $1 LIMIT 1
+`
+
+type GetUserFromRefreshTokenRow struct {
+	UserID    uuid.UUID
+	ExpiresAt time.Time
+}
+
+func (q *Queries) GetUserFromRefreshToken(ctx context.Context, token string) (GetUserFromRefreshTokenRow, error) {
+	row := q.db.QueryRowContext(ctx, getUserFromRefreshToken, token)
+	var i GetUserFromRefreshTokenRow
+	err := row.Scan(&i.UserID, &i.ExpiresAt)
+	return i, err
 }

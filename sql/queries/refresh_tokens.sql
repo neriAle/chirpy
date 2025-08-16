@@ -8,3 +8,7 @@ VALUES (
     $2
 )
 RETURNING token;
+
+-- name: GetUserFromRefreshToken :one
+SELECT user_id, expires_at FROM refresh_tokens
+WHERE token = $1 LIMIT 1;
