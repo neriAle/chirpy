@@ -85,7 +85,6 @@ func (cfg *apiConfig) handlerLoginUser(rw http.ResponseWriter, req *http.Request
 	type parameters struct {
 		Email 				string `json:"email"`
 		Password 			string `json:"password"`
-		Expires_in_seconds	*int `json:"expires_in_seconds,omitempty"`
 	}
 	params := parameters{}
 
@@ -112,9 +111,6 @@ func (cfg *apiConfig) handlerLoginUser(rw http.ResponseWriter, req *http.Request
 	}
 
 	expiration := time.Hour
-	if params.Expires_in_seconds != nil && *params.Expires_in_seconds < 3600 && *params.Expires_in_seconds > 0{
-		expiration = time.Duration(*params.Expires_in_seconds) * time.Second
-	}
 	token, err := auth.MakeJWT(user.ID, cfg.tokenSecret, expiration)
 	if err != nil {
 		log.Printf("Couldn't sign the JWT: %s", err)
@@ -122,9 +118,32 @@ func (cfg *apiConfig) handlerLoginUser(rw http.ResponseWriter, req *http.Request
 		return
 	}
 
+	refresh_token, err := auth.MakeRefreshToken()
+	if err != nil {
+		log.Printf("Couldn't create refresh token: %s", err)
+		respondWithError(rw, 500, "Unable to create refresh token")
+		return
+	}
+
+	type refreshTokenParams struct {
+		Token  string
+		UserID uuid.UUID
+	}
+	refTokPar := refreshTokenParams{
+		Token:	refresh_token,
+		UserID:	user.ID,
+	}
+	refresh_token, err = cfg.db.CreateRefreshToken(req.Context(), database.CreateRefreshTokenParams(refTokPar))
+	if err != nil {
+		log.Printf("Couldn't store refresh token: %s", err)
+		respondWithError(rw, 500, "Unable to store refresh token")
+		return
+	}
+
 	type UserWithToken struct {
 		User
-		Token	string	`json:"token,omitempty"`
+		Token			string	`json:"token,omitempty"`
+		Refresh_token	string	`json:"refresh_token"`
 	}
 
 	usr := UserWithToken{
@@ -135,6 +154,7 @@ func (cfg *apiConfig) handlerLoginUser(rw http.ResponseWriter, req *http.Request
 			Email: user.Email,
 		}, 
 		Token: token,
+		Refresh_token: refresh_token,
 	}
 	respondWithJSON(rw, 200, usr)
 }
