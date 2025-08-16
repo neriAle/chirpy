@@ -126,12 +126,14 @@ func (cfg *apiConfig) handlerLoginUser(rw http.ResponseWriter, req *http.Request
 	}
 
 	type refreshTokenParams struct {
-		Token  string
-		UserID uuid.UUID
+		Token  		string
+		ExpiresAt 	time.Time
+		UserID 		uuid.UUID
 	}
 	refTokPar := refreshTokenParams{
-		Token:	refresh_token,
-		UserID:	user.ID,
+		Token:		refresh_token,
+		ExpiresAt:	time.Now().AddDate(0, 0, 60),
+		UserID:		user.ID,
 	}
 	refresh_token, err = cfg.db.CreateRefreshToken(req.Context(), database.CreateRefreshTokenParams(refTokPar))
 	if err != nil {
@@ -167,21 +169,15 @@ func (cfg *apiConfig) handlerRefreshJWT(rw http.ResponseWriter, req *http.Reques
 		return
 	}
 
-	result, err := cfg.db.GetUserFromRefreshToken(req.Context(), refresh_token)
+	user, err := cfg.db.GetUserFromRefreshToken(req.Context(), refresh_token)
 	if err != nil {
-		log.Printf("Header is missing refresh token: %s", err)
-		respondWithError(rw, 401, "Header is missing refresh token")
-		return
-	}
-
-	if result.ExpiresAt.After(time.Now()) {
-		log.Printf("Refresh token expired")
+		log.Printf("Refresh token expired: %s", err)
 		respondWithError(rw, 401, "Refresh token expired")
 		return
 	}
 
 	expiration := time.Hour
-	token, err := auth.MakeJWT(result.UserID, cfg.tokenSecret, expiration)
+	token, err := auth.MakeJWT(user, cfg.tokenSecret, expiration)
 	if err != nil {
 		log.Printf("Couldn't sign the JWT: %s", err)
 		respondWithError(rw, 500, "Unable to sign the JWT")
@@ -192,6 +188,24 @@ func (cfg *apiConfig) handlerRefreshJWT(rw http.ResponseWriter, req *http.Reques
 		Token	string	`json:"token"`
 	}
 	respondWithJSON(rw, 200, token_return{Token: token})
+}
+
+func (cfg *apiConfig) handlerRevokeRefreshToken(rw http.ResponseWriter, req *http.Request) {
+	refresh_token, err := auth.GetBearerToken(req.Header)
+	if err != nil {
+		log.Printf("Header is missing refresh token: %s", err)
+		respondWithError(rw, 400, "Header is missing refresh token")
+		return
+	}
+
+	err = cfg.db.RevokeRefreshToken(req.Context(), refresh_token)
+	if err != nil {
+		log.Printf("Unable to revoke token: %s", err)
+		respondWithError(rw, 404, "Refresh token not found")
+		return
+	}
+
+	rw.WriteHeader(204)
 }
 
 func (cfg *apiConfig) handlerCreateChirp(rw http.ResponseWriter, req *http.Request) {
