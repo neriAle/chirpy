@@ -47,7 +47,59 @@ func (cfg *apiConfig) handlerCreateUser(rw http.ResponseWriter, req *http.Reques
 
 	mappedUser := User(user)
 	respondWithJSON(rw, 201, mappedUser)
-	return
+}
+
+func (cfg *apiConfig) handlerUpdateUser(rw http.ResponseWriter, req *http.Request) {
+	token, err := auth.GetBearerToken(req.Header)
+	if err != nil {
+		log.Printf("Header is missing JWT: %s", err)
+		respondWithError(rw, 401, "Header is missing JWT")
+		return
+	}
+
+	userId, err := auth.ValidateJWT(token, cfg.tokenSecret)
+	if err != nil {
+		log.Printf("Invalid token: %s", err)
+		respondWithError(rw, 401, "JWT is not valid")
+		return
+	}
+
+	type parameters struct {
+		Email 		string `json:"email"`
+		Password 	string `json:"password"`
+	}
+	type updateUserParameters struct {
+		Email          string
+		HashedPassword string
+		ID             uuid.UUID
+	}
+	params := parameters{}
+
+	decoder := json.NewDecoder(req.Body)
+	err = decoder.Decode(&params)
+	if err != nil {
+		log.Printf("Error decoding parameters: %s", err)
+		respondWithError(rw, 400, "Email and Password are required for updating")
+		return
+	}
+
+	hash, err := auth.HashPassword(params.Password)
+	if err != nil {
+		log.Printf("Error hashing the password: %s", err)
+		respondWithError(rw, 500, "Something went wrong while hashing the password")
+		return
+	}
+
+	updateParams := updateUserParameters{Email: params.Email, HashedPassword: hash, ID: userId}
+	user, err := cfg.db.UpdateUser(req.Context(), database.UpdateUserParams(updateParams))
+	if err != nil {
+		log.Printf("Error updating the user on the database: %s", err)
+		respondWithError(rw, 500, "Can't update user")
+		return
+	}
+
+	mappedUser := User(user)
+	respondWithJSON(rw, 200, mappedUser)
 }
 
 func (cfg *apiConfig) handlerLoginUser(rw http.ResponseWriter, req *http.Request) {
