@@ -57,6 +57,7 @@ func startServer(dbq *database.Queries, pf string, ts string) {
 	servemux.HandleFunc("POST /api/refresh", apiCfg.handlerRefreshJWT)
 	servemux.HandleFunc("POST /api/revoke", apiCfg.handlerRevokeRefreshToken)
 	servemux.HandleFunc("PUT /api/users", apiCfg.handlerUpdateUser)
+	servemux.HandleFunc("DELETE /api/chirps/{chirpID}", apiCfg.handlerDeleteChirp)
 
 	server := &http.Server{
 		Addr:    ":" + port,

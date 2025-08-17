@@ -101,6 +101,54 @@ func (cfg *apiConfig) handlerGetChirp(rw http.ResponseWriter, req *http.Request)
 	respondWithJSON(rw, 200, mappedChirp)
 }
 
+func (cfg *apiConfig) handlerDeleteChirp(rw http.ResponseWriter, req *http.Request) {
+	token, err := auth.GetBearerToken(req.Header)
+	if err != nil {
+		log.Printf("Header is missing JWT: %s", err)
+		respondWithError(rw, 401, "Header is missing JWT")
+		return
+	}
+
+	userId, err := auth.ValidateJWT(token, cfg.tokenSecret)
+	if err != nil {
+		log.Printf("Invalid token: %s", err)
+		respondWithError(rw, 401, "JWT is not valid")
+		return
+	}
+
+	cid := req.PathValue("chirpID")
+	if cid == "" {
+		respondWithError(rw, 400, "Missing chirp ID in request")
+		return
+	}
+
+	parsedUUID, err := uuid.Parse(cid)
+	if err != nil {
+		log.Printf("The ID of the request can't be parsed into a UUID")
+		respondWithError(rw, 400, "Invalid ID")
+		return
+	}
+
+	chirp, err := cfg.db.GetChirp(req.Context(), parsedUUID)
+	if err != nil {
+		respondWithError(rw, 404, "Chirp not found")
+		return
+	}
+
+	if chirp.UserID != userId {
+		respondWithError(rw, 403, "Not authorized to delete this chirp")
+		return
+	}
+
+	err = cfg.db.DeleteChirp(req.Context(), parsedUUID)
+	if err != nil {
+		respondWithError(rw, 500, "Error deleting the chirp")
+		return
+	}
+
+	rw.WriteHeader(204)
+}
+
 func handlerValidateChirp(rw http.ResponseWriter, req *http.Request) {
 	type parameters struct {
 		Body string `json:"body"`
