@@ -1,9 +1,10 @@
 package main
 
 import(
-	"github.com/neriAle/chirpy/internal/database"
 	"net/http"
 	"sync/atomic"
+
+	"github.com/neriAle/chirpy/internal/database"
 )
 
 func startServer(dbq *database.Queries, pf string, ts string) {

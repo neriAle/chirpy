@@ -1,10 +1,11 @@
 package auth
 
 import(
-	"github.com/google/uuid"
 	"net/http"
 	"testing"
 	"time"
+
+	"github.com/google/uuid"
 )
 
 func TestJWTValidSubject(t *testing.T) {

@@ -1,12 +1,13 @@
 package main
 
 import(
-	"github.com/neriAle/chirpy/internal/database"
 	"database/sql"
-	_ "github.com/lib/pq"
-	"github.com/joho/godotenv"
 	"log"
 	"os"
+
+	"github.com/joho/godotenv"
+	"github.com/neriAle/chirpy/internal/database"
+	_ "github.com/lib/pq"
 )
 
 func main() {
