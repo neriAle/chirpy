@@ -62,7 +62,21 @@ func (cfg *apiConfig) handlerCreateChirp(rw http.ResponseWriter, req *http.Reque
 }
 
 func (cfg *apiConfig) handlerGetChirps(rw http.ResponseWriter, req *http.Request) {
-	chirps, err := cfg.db.ListChirps(req.Context())
+	s := req.URL.Query().Get("author_id")
+	var chirps []database.Chirp
+	var err error
+	if s == "" {
+		chirps, err = cfg.db.ListChirps(req.Context())
+	} else {
+		parsedUUID, err := uuid.Parse(s)
+		if err != nil {
+			log.Printf("The ID of the user can't be parsed into a UUID")
+			respondWithError(rw, 400, "Invalid user ID")
+			return
+		}
+		chirps, err = cfg.db.GetChirpsByAuthor(req.Context(), parsedUUID)
+	}
+
 	if err != nil {
 		log.Printf("Error retrieving the chirps from the database: %s", err)
 		respondWithError(rw, 500, "Can't retrieve chirps")
