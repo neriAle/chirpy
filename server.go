@@ -23,6 +23,7 @@ type User struct {
 	CreatedAt 	time.Time 	`json:"created_at"`
 	UpdatedAt 	time.Time 	`json:"updated_at"`
 	Email     	string    	`json:"email"`
+	IsChirpyRed	bool		`json:"is_chirpy_red"`
 }
 
 type Chirp struct {
@@ -58,6 +59,7 @@ func startServer(dbq *database.Queries, pf string, ts string) {
 	servemux.HandleFunc("POST /api/revoke", apiCfg.handlerRevokeRefreshToken)
 	servemux.HandleFunc("PUT /api/users", apiCfg.handlerUpdateUser)
 	servemux.HandleFunc("DELETE /api/chirps/{chirpID}", apiCfg.handlerDeleteChirp)
+	servemux.HandleFunc("POST /api/polka/webhooks", apiCfg.handlerUpgradeUser)
 
 	server := &http.Server{
 		Addr:    ":" + port,

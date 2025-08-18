@@ -171,10 +171,11 @@ func (cfg *apiConfig) handlerLoginUser(rw http.ResponseWriter, req *http.Request
 
 	usr := UserWithToken{
 		User: User{
-			ID: user.ID, 
-			CreatedAt: user.CreatedAt, 
-			UpdatedAt: user.UpdatedAt, 
-			Email: user.Email,
+			ID: 			user.ID, 
+			CreatedAt: 		user.CreatedAt, 
+			UpdatedAt: 		user.UpdatedAt, 
+			Email: 			user.Email,
+			IsChirpyRed:	user.IsChirpyRed,
 		}, 
 		Token: token,
 		Refresh_token: refresh_token,
@@ -223,6 +224,45 @@ func (cfg *apiConfig) handlerRevokeRefreshToken(rw http.ResponseWriter, req *htt
 	if err != nil {
 		log.Printf("Unable to revoke token: %s", err)
 		respondWithError(rw, 404, "Refresh token not found")
+		return
+	}
+
+	rw.WriteHeader(204)
+}
+
+func (cfg *apiConfig) handlerUpgradeUser(rw http.ResponseWriter, req *http.Request) {
+	type parameters struct {
+		Event 	string `json:"event"`
+		Data 	struct {
+			UserID	string 	`json:"user_id"`
+		} `json:"data"`
+	}
+	params := parameters{}
+
+	decoder := json.NewDecoder(req.Body)
+	err := decoder.Decode(&params)
+	if err != nil {
+		log.Printf("Error decoding parameters: %s", err)
+		respondWithError(rw, 400, "Malformed request")
+		return
+	}
+
+	if params.Event != "user.upgraded" {
+		rw.WriteHeader(204)
+		return
+	}
+
+	parsedUUID, err := uuid.Parse(params.Data.UserID)
+	if err != nil {
+		log.Printf("Error parsing the user UUID: %s", err)
+		respondWithError(rw, 400, "Invalid user id")
+		return
+	}
+
+	err = cfg.db.UpgradeUser(req.Context(), parsedUUID)
+	if err != nil {
+		log.Printf("Couldn't upgrade the user: %s", err)
+		respondWithError(rw, 404, "User not found")
 		return
 	}
 
