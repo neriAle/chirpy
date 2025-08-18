@@ -231,6 +231,19 @@ func (cfg *apiConfig) handlerRevokeRefreshToken(rw http.ResponseWriter, req *htt
 }
 
 func (cfg *apiConfig) handlerUpgradeUser(rw http.ResponseWriter, req *http.Request) {
+	apiKey, err := auth.GetAPIKey(req.Header)
+	if err != nil {
+		log.Printf("Missing or malformed API key: %s", err)
+		respondWithError(rw, 401, "Missing API key")
+		return
+	}
+
+	if apiKey != cfg.polka_key {
+		log.Printf("Incorrect Polka API key: %s", err)
+		respondWithError(rw, 401, "Incorrect Polka API key, authorization denied")
+		return
+	}
+	
 	type parameters struct {
 		Event 	string `json:"event"`
 		Data 	struct {
@@ -240,7 +253,7 @@ func (cfg *apiConfig) handlerUpgradeUser(rw http.ResponseWriter, req *http.Reque
 	params := parameters{}
 
 	decoder := json.NewDecoder(req.Body)
-	err := decoder.Decode(&params)
+	err = decoder.Decode(&params)
 	if err != nil {
 		log.Printf("Error decoding parameters: %s", err)
 		respondWithError(rw, 400, "Malformed request")
