@@ -4,19 +4,10 @@ import(
 	"encoding/json"
 	"log"
 	"net/http"
-	"sync/atomic"
 	"time"
 
 	"github.com/google/uuid"
-	"github.com/neriAle/chirpy/internal/database"
 )
-
-type apiConfig struct {
-	fileserverHits 	atomic.Int32
-	db 				*database.Queries
-	platform 		string
-	tokenSecret 	string
-}
 
 type User struct {
 	ID        	uuid.UUID 	`json:"id"`
@@ -34,17 +25,11 @@ type Chirp struct {
 	UserID    uuid.UUID `json:"user_id"`
 }
 
-func startServer(dbq *database.Queries, pf string, ts string) {
+func startServer(apiCfg apiConfig) {
 	const filepathRoot = "."
 	const port = "9090"
 
 	servemux := http.NewServeMux()
-	apiCfg := apiConfig{
-		fileserverHits: atomic.Int32{},
-		db: dbq,
-		platform: pf,
-		tokenSecret: ts,
-	}
 
 	servemux.Handle("/app/", apiCfg.middlewareMetricsInc(http.StripPrefix("/app", http.FileServer(http.Dir(filepathRoot)))))
 	servemux.HandleFunc("GET /api/healthz", handlerHealthz)
